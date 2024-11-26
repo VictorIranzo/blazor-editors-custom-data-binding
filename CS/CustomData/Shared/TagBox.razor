@@ -46,6 +46,8 @@ TextFieldName="@nameof(WebApiLookup.Text)">
 @code {
     private IEnumerable<WebApiLookup> dataList = new List<WebApiLookup>();
 
+    private string BaseUrl = "http://localhost:5100/data";
+
     [Parameter]
     public EventCallback<IEnumerable<int>> ValuesChanged { get; set; }
 
@@ -54,7 +56,8 @@ TextFieldName="@nameof(WebApiLookup.Text)">
     public IEnumerable<int>? Values { get; set; }
     public IEnumerable<string> Tags { get; set; } = new List<string>();
 
-    [Inject] protected HttpClient Client { get; set; }
+    [Inject]
+    protected HttpClient Client { get; set; }
 
     private async Task OnDxValuesChanged(IEnumerable<int> values)
     {
@@ -87,7 +90,7 @@ TextFieldName="@nameof(WebApiLookup.Text)">
             }
 
             var response = await Client.PostAsJsonAsync(
-                "http://localhost:5100/data",
+                BaseUrl,
                 new WebApiLookup() { Text = tag });
             response.EnsureSuccessStatusCode();
             var responseStream = await response.Content.ReadAsStreamAsync();
@@ -101,8 +104,6 @@ TextFieldName="@nameof(WebApiLookup.Text)">
 
     private async Task RemoveNewTagsNotUsedAsync(IEnumerable<string> tags)
     {
-        // Remove the work tasks that have been deleted after
-        // adding them using this tagBox.
         foreach (var removedTag in previousTags.Except(tags))
         {
             var response = await Client.DeleteAsync(
@@ -124,7 +125,7 @@ TextFieldName="@nameof(WebApiLookup.Text)">
         options.Sort = sortInfos.ToArray();
 
         var response = await Client.GetAsync(options.ConvertToGetRequestUri
-            ("http://localhost:5100/data/LoadData"), cancellationToken);
+            ($"{BaseUrl}/LoadData"), cancellationToken);
         response.EnsureSuccessStatusCode();
         var responseStream = await response.Content.ReadAsStreamAsync();
         var result = await JsonSerializer.DeserializeAsync<LoadResult>(responseStream, cancellationToken: cancellationToken);

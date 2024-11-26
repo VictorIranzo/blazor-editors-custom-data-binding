@@ -19,16 +19,18 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("LoadData")]
-        public ActionResult<LoadResult> LoadData(DataSourceLoadOptions options)
+        public async Task<ActionResult<LoadResult>> LoadData(DataSourceLoadOptions options)
         {
+            await Task.Delay(Random.Shared.Next(150, 300));
             var result = DataSourceLoader.Load(dataService.Get(), options);
 
             return result;
         }
 
         [HttpPost]
-        public WebApiLookup Create(WebApiLookup webApiLookup)
+        public async Task<WebApiLookup> CreateAsync(WebApiLookup webApiLookup)
         {
+            await Task.Delay(Random.Shared.Next(150, 300));
             dataService.Create(webApiLookup);
             return webApiLookup;
         }

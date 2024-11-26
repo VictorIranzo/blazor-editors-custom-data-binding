@@ -1,5 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-
 internal class Program
 {
     private static void Main(string[] args)
@@ -10,7 +8,6 @@ internal class Program
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
         builder.Services.AddDevExpressBlazor();
-        builder.Services.AddEntityFrameworkSqlite();
         builder.Services.Configure<DevExpress.Blazor.Configuration.GlobalOptions>(options =>
         {
             options.BootstrapVersion = DevExpress.Blazor.BootstrapVersion.v5;

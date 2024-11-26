@@ -11,7 +11,6 @@
 	  <PackageReference Include="DevExpress.Blazor" Version="24.1.7" />
 	  <PackageReference Include="DevExtreme.AspNet.Core" Version="23.1.4" />
     <PackageReference Include="DevExtreme.AspNet.Data" Version="4.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.10" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="wwwroot\images\" />
