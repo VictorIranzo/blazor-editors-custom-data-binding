@@ -1,0 +1,15 @@
+
+<div class="d-flex flex-row-reverse bg-light p-1 me-1">
+    <span class="ms-1" @onclick="@( e => CloseClick.InvokeAsync(e))" style="cursor:pointer">
+        x
+    </span>
+    @ChildContent
+</div>
+@code {
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> CloseClick { get; set; }
+}

@@ -1,24 +1,144 @@
 ﻿@page "/TagBox"
 
-@using CustomData.Data
+@using CustomData.Extensions
 @using DevExtreme.AspNet.Data
 @using DevExtreme.AspNet.Data.ResponseModel
 @using System.Threading
 @using System.Threading.Tasks
 @using System.Net.Http
 @using System.Text.Json
+@using Contracts
 
-<DxTagBox TData="@WebApiLookup" 
-          TValue="string"
-          CustomData="@LoadCustomData"
-          TextFieldName="Text" >
+<DxTagBox
+CustomData="@LoadCustomData"
+TData="@WebApiLookup"
+TValue="int"
+AllowCustomTags="true"
+Values="Values"
+Tags="Tags"
+ValuesExpression="() => Values"
+TagsExpression="() => Tags"
+ValuesChanged="(IEnumerable<int> v) => OnDxValuesChanged(v)"
+TagsChanged="(IEnumerable<string> v) => OnTagsChangedAsync(v)"
+ListRenderMode="ListRenderMode.Virtual"
+SearchMode="ListSearchMode.AutoSearch"
+SearchFilterCondition="ListSearchFilterCondition.Contains"
+SearchTextParseMode="ListSearchTextParseMode.GroupWordsByAnd"
+ValueFieldName="@nameof(WebApiLookup.Id)"
+TextFieldName="@nameof(WebApiLookup.Text)">
+    <TagDisplayTemplate Context="tagCtx">
+        <TagButton CloseClick="tagCtx.RemoveTagAction">
+            @if (tagCtx.IsCustom)
+            {
+                <div>@tagCtx.DisplayText</div>
+            }
+            else
+            {
+                <div>@tagCtx.DataItem.Text</div>
+            }
+        </TagButton>
+    </TagDisplayTemplate>
+    <ItemTemplate Context="userItemContext">
+        <div>@userItemContext.Text</div>
+    </ItemTemplate>
 </DxTagBox>
 
 @code {
-    string Value { get; set; }
+    private IEnumerable<WebApiLookup> dataList = new List<WebApiLookup>();
+
+    [Parameter]
+    public EventCallback<IEnumerable<int>> ValuesChanged { get; set; }
+
+    private IEnumerable<string> previousTags = new List<string>();
+
+    public IEnumerable<int>? Values { get; set; }
+    public IEnumerable<string> Tags { get; set; } = new List<string>();
+
     [Inject] protected HttpClient Client { get; set; }
 
-    protected Task<LoadResult> LoadCustomData(DataSourceLoadOptionsBase options, CancellationToken cancellationToken) {
-        return CustomDataHelper.LoadCustomData(Client, options, cancellationToken);
+    private async Task OnDxValuesChanged(IEnumerable<int> values)
+    {
+        Values = values;
+        await this.ValuesChanged.InvokeAsync(values);
+    }
+
+    private async Task OnTagsChangedAsync(IEnumerable<string> tags)
+    {
+        Tags = tags;
+
+        await CreateNewTagsAsync(tags);
+        await RemoveNewTagsNotUsedAsync(tags);
+
+        previousTags = tags;
+    }
+
+    private async Task CreateNewTagsAsync(IEnumerable<string> tags)
+    {
+        foreach (var tag in tags)
+        {
+            if (previousTags.Contains(tag))
+            {
+                continue;
+            }
+
+            if (!IsCustomerTag(tag))
+            {
+                continue;
+            }
+
+            var response = await Client.PostAsJsonAsync(
+                "http://localhost:5100/data",
+                new WebApiLookup() { Text = tag });
+            response.EnsureSuccessStatusCode();
+            var responseStream = await response.Content.ReadAsStreamAsync();
+
+            var result = await JsonSerializer.DeserializeAsync<WebApiLookup>(responseStream, LoadResultExtensions.Options);
+            var newValues = Values!.Append(result.Id).ToList();
+
+            await OnDxValuesChanged(newValues);
+        }
+    }
+
+    private async Task RemoveNewTagsNotUsedAsync(IEnumerable<string> tags)
+    {
+        // Remove the work tasks that have been deleted after
+        // adding them using this tagBox.
+        foreach (var removedTag in previousTags.Except(tags))
+        {
+            var response = await Client.DeleteAsync(
+                $"http://localhost:5100/data/{removedTag}");
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
+    protected async Task<LoadResult> LoadCustomData(DataSourceLoadOptionsBase options, CancellationToken cancellationToken)
+    {
+        var sortInfos = new List<SortingInfo>
+        {
+            new() {
+                Desc = false,
+                Selector = nameof(WebApiLookup.Text)
+            }
+        };
+
+        options.Sort = sortInfos.ToArray();
+
+        var response = await Client.GetAsync(options.ConvertToGetRequestUri
+            ("http://localhost:5100/data/LoadData"), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseStream = await response.Content.ReadAsStreamAsync();
+        var result = await JsonSerializer.DeserializeAsync<LoadResult>(responseStream, cancellationToken: cancellationToken);
+
+        var currentData = result.ToEnumerable<WebApiLookup>();
+        dataList = dataList.UnionBy(currentData, keySelector: i => i.Id);
+
+        Console.WriteLine(string.Join(",", result.data));
+
+        return result;
+    }
+
+    private bool IsCustomerTag(string tag)
+    {
+        return !dataList.Any(selectItem => selectItem.Text == tag);
     }
 }
