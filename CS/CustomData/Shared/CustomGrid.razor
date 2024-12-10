@@ -1,0 +1,83 @@
+﻿@page "/CustomGrid"
+
+@using Contracts
+@using DevExpress.Data.Async.Helpers
+<div class="grid-container">
+    <DxGrid @ref="Grid"
+    Data="@Data"
+    AllowSelectRowByClick="true"
+    AllowGroup="true"
+    ShowGroupPanel="true"
+    SelectedDataItems="@SelectedDataItems"
+    SelectedDataItemsChanged="Grid_SelectedDataItemsChanged"
+    ColumnResizeMode="GridColumnResizeMode.NextColumn"
+    TextWrapEnabled="false"
+    VirtualScrollingEnabled="true"
+    HighlightRowOnHover="true">
+        <Columns>
+            <DxGridSelectionColumn Width="60px" />
+            <DxGridDataColumn FieldName="CompanyName" Width="10%" MinWidth="80"/>
+            <DxGridDataColumn FieldName="ContactTitle" MinWidth="100" >
+                <FooterTemplate>
+                    <div>
+                        <span>Selected items total sum:</span>
+                        <span>@_selectedItemsTotal.ToString("F2")</span>
+                    </div>
+                </FooterTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="City" MinWidth="100">
+                <FooterTemplate>
+                    <div>
+                        <span>Selected items count:</span>
+                        <span>@_selectedItemsCount.ToString("F2")</span>
+                    </div>
+                </FooterTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="PostalCode" Width="10%" MinWidth="80" />
+            <DxGridDataColumn FieldName="Total" DisplayFormat="c" Width="220px" />
+        </Columns>
+        <TotalSummary>
+            <DxGridSummaryItem SummaryType="GridSummaryItemType.Sum" FieldName="Total" DisplayText="Grand Total: {0}" ValueDisplayFormat="c0" />
+        </TotalSummary>
+    </DxGrid>
+</div>
+
+@code {
+    GridDevExtremeDataSource<Customer>? Data { get; set; }
+    IReadOnlyList<object> SelectedDataItems { get; set; } = new List<object>();
+    IGrid? Grid { get; set; }
+
+    private decimal _selectedItemsTotal = 0;
+    private decimal _selectedItemsCount = 0;
+
+    private Uri BaseUrl = new Uri("http://localhost:5100/data/");
+
+    [Inject]
+    protected HttpClient Client { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(BaseUrl, "GetCustomers");
+
+        var gridDevExtremeDataSource = new GridDevExtremeDataSource<Customer>(Client, uri);
+
+        this.Data = gridDevExtremeDataSource;
+    }
+
+    void Grid_SelectedDataItemsChanged(IReadOnlyList<object> newSelection)
+    {
+        SelectedDataItems = newSelection;
+
+        var gridSelectedDataItemsCollection = (DevExpress.Blazor.Internal.GridSelectedDataItemsCollection)newSelection;
+
+        List<Customer> selectedDataItemsCasted = new List<Customer>();
+
+        foreach (var item in gridSelectedDataItemsCollection)
+        {
+            selectedDataItemsCasted.Add((Customer)ReadonlyThreadSafeProxyForObjectFromAnotherThread.ExtractOriginalRow(item));
+        }
+
+        _selectedItemsTotal = selectedDataItemsCasted.Sum(x => x.Total);
+        _selectedItemsCount = selectedDataItemsCasted.Count;
+    }
+}
